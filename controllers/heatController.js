@@ -1,5 +1,5 @@
 const {Heat, HeatTrickModifier, HeatTrick, TeamHeat, Trick, CompetitionTrick, CompetitionModifier, TeamResults,
-    Contestant, ContestantResults, GroupMember
+    Contestant, ContestantResults, GroupMember, Group, Competition, Category, Team
 } = require("../models/models");
 const ApiError = require("../error/ApiError");
 
@@ -9,12 +9,23 @@ class HeatController {
         try {
             const {id}  = req.params
             const heat = await Heat.findOne({where:{id}, include: [
+                    {model: Competition, include: [
+                            {model: CompetitionModifier}
+                        ]},
                     {model: HeatTrick, include: [
-                            {model: HeatTrickModifier},
+                            {model: HeatTrickModifier, include: [
+                                    {model: CompetitionModifier}
+                                ]},
                             {model: CompetitionTrick, include: [
-                                    {model: Trick}
+                                    {model: Trick, include: [
+                                            {model: Category, include: [
+                                                    {model: Category, as: 'parent'}
+                                                ]}
+                                        ]}
                                 ]}
-                        ]}
+                        ]},
+                    {model: Contestant},
+                    {model: Group}
                 ]})
             return res.json(heat)
         } catch (e) {
@@ -58,16 +69,11 @@ class HeatController {
         }
     }
 
-
-
-
-
-
-
     async getTeamHeat (req, res, next) {
         try {
             const {id}  = req.params
             const teamHeat = await TeamHeat.findOne({where:{id}, include: [
+                    {model: Competition},
                     {model: Heat, include: [
                             {model: HeatTrick, include: [
                                     {model: HeatTrickModifier},
@@ -86,9 +92,9 @@ class HeatController {
     async createTeamHeat(req, res, next) {
         try {
             const {teamId, order, round, groupId} = req.body
-            await TeamHeat.create({teamId, order, round}).then(async (th) => {
+            await TeamHeat.create({teamId, order, round, groupId}).then(async (th) => {
 
-                await Contestant.findAll({where: {teamId}}).then(async (data) => {
+                await Contestant.findAll({where: {teamId}, order:[['teamOrder', 'ASC']]}).then(async (data) => {
                     data.forEach(async (d) => {
                         Heat.create({order, round, teamHeatId: th.id, contestantId: d.id, competitionId: d.competitionId, groupId})
                     })
@@ -100,16 +106,72 @@ class HeatController {
         }
     }
 
-    async createGroupHeats (req, res, next) {
+
+
+
+    async createFirstGroupHeats (req, res, next) {
         try {
             const {groupId, round} = req.body
+            const group = await Group.findOne({where: {id: groupId}})
+            let order = 0
             await GroupMember.findAll({where: {groupId}}).then(async (data) => {
                 data.forEach(async d => {
-                    await Heat.create({contestantId: d.contestantId, competitionId: d.competitionId, round, groupId})
+                    order = order +1
+                    await Heat.create({order: order, contestantId: d.contestantId, competitionId: group.competitionId, round, groupId})
                 })
             })
 
             return res.json('Заезд группы добавлен')
+        } catch (e) {
+            next(ApiError.badRequest(e.message))
+        }
+    }
+    async createNextRoundTeamHeats(req, res, next) {
+        try {
+            const {round, groupId} = req.body
+            const teamHeats = await TeamHeat.findAll({where: {groupId, round}, order:[['total', 'ASC']]})
+            let order = 0
+            for (let i=0; i<teamHeats.length; i++) {
+                order = order +1
+                await TeamHeat.create({order: order, teamId: teamHeats[i]['teamId'], round: (Number(round)+1), groupId}).then(async(data)=> {
+                const contestantHeats = await Heat.findAll({where: {groupId, teamHeatId: teamHeats[i]['id'], round}, order:[['order', 'ASC']]})
+                let heatOrder = 0
+                        console.log(contestantHeats.length)
+                for (let j=0; j<contestantHeats.length; j++) {
+                    console.log('******************')
+                    console.log(j)
+                    heatOrder = heatOrder +1
+                    await Heat.create({order: heatOrder, teamHeatId: data.dataValues.id, contestantId: contestantHeats[j]['contestantId'], competitionId: contestantHeats[j]['competitionId'], round: (Number(round)+1), groupId})
+                }
+                }
+                )
+            }
+
+            return res.json('Командный заезд добавлен')
+        } catch (e) {
+            next(ApiError.badRequest(e.message))
+        }
+    }
+
+    async createNextRoundsHeats (req, res, next) {
+        try {
+            const {groupId, round, nextRoundNum, nextGroupNum, nextGroupId, totalNum} = req.body
+            const contestantHeats = await Heat.findAll({where: {groupId, round}, order:[['total', 'ASC']]})
+            let order = 0
+            for (let i=(totalNum-nextRoundNum); i<totalNum; i++) {
+                order = order +1
+                await Heat.create({order: order, contestantId: contestantHeats[i]['contestantId'], competitionId: contestantHeats[i]['competitionId'], round: (Number(round)+1), groupId})
+            }
+            for (let i=(totalNum-nextRoundNum-nextGroupNum); i<(totalNum-nextRoundNum); i++) {
+                await GroupMember.update({groupId: nextGroupId}, {where: {contestantId: contestantHeats[i]['contestantId'], groupId}})
+            }
+            for (let i=0; i<(totalNum-nextRoundNum-nextGroupNum); i++) {
+                await GroupMember.destroy({where: {contestantId: contestantHeats[i]['contestantId'], groupId}})
+            }
+
+
+
+            return res.json('Следующий этап добавлен')
         } catch (e) {
             next(ApiError.badRequest(e.message))
         }
@@ -119,7 +181,9 @@ class HeatController {
     async getGroupHeats (req, res, next) {
         try {
             const {groupId}  = req.params
-            const groupHeats = await Heat.findAll({where:{groupId}, order: [['round', 'ASC']], include: [
+            const {round} = req.query
+            const groupHeats = await Heat.findAll({where:{groupId, round}, order: [['round', 'ASC']], include: [
+                {model: Contestant},
                 {model: HeatTrick, include: [
                     {model: HeatTrickModifier},
                     {model: CompetitionTrick, include: [
@@ -132,6 +196,29 @@ class HeatController {
             next(ApiError.badRequest(e.message))
         }
     }
+
+    async getTeamGroupHeats (req, res, next) {
+        try {
+            const {groupId}  = req.params
+            const {round} = req.query
+            const teamHeats = await TeamHeat.findAll({where:{groupId, round}, order: [['round', 'ASC']], include: [
+                    {model: Team},
+                    {model: Heat, include: [
+                            {model: Contestant},
+                            {model: HeatTrick, include: [
+                                    {model: HeatTrickModifier},
+                                    {model: CompetitionTrick, include: [
+                                            {model: Trick}
+                                        ]}
+                                ]}
+                        ]}
+                ]})
+            return res.json(teamHeats)
+        } catch (e) {
+            next(ApiError.badRequest(e.message))
+        }
+    }
+
 
     async modifyTeamHeat (req, res, next) {
         try {
@@ -169,10 +256,10 @@ class HeatController {
     async addTrick(req, res, next) {
         try {
             const {basePoints, modifiers, total, heatId, competitionTrickId, competitionId}  = req.body
-            const mods = await CompetitionModifier.findAll({where: {competitionId}})
+            const mods = await CompetitionModifier.findAll({where: {competitionId}, order: [['order', 'ASC']]})
             await HeatTrick.create({basePoints, modifiers, total, heatId, competitionTrickId}).then( async (data) => {
                 mods.forEach(async (m) => {
-                    await HeatTrickModifier.create({heatTrickId: data.id, value: m.defaultValue, multiplier: m.multiplier, competitionModifierId: m.id})
+                    await HeatTrickModifier.create({heatTrickId: data.id, value: m.defaultValue, multiplier: m.multiplier, competitionModifierId: m.id, order: m.order})
                 })
             })
 
@@ -209,7 +296,6 @@ class HeatController {
         try {
             const {id} = req.params
             const {value}  = req.body
-
             await HeatTrickModifier.update({value}, {where: {id}})
             return res.json('Модификатор обновлен')
         } catch (e) {
@@ -222,7 +308,7 @@ class HeatController {
             const {id} = req.params
             const heatTrick = await HeatTrick.findOne({where: {id}})
             let total = heatTrick.basePoints
-            await HeatTrickModifier.findAll({where: {heatTrickId: id}}).then(async (data) => {
+            await HeatTrickModifier.findAll({where: {heatTrickId: id}, order: [['order', 'ASC']]}).then(async (data) => {
                 data.forEach(m => m.multiplier ? total*=m.value : total+=m.value)
                 const modifiers = total - heatTrick.basePoints
                 await HeatTrick.update({total, modifiers}, {where: {id}})
@@ -237,14 +323,22 @@ class HeatController {
     async heatCalculate (req, res, next) {
         try {
             const {id} = req.params
-            const {bonus, bonusDescription} = req.body
-            const heat = Heat.findOne({where: {id}})
+            let {bonus, bonusDescription} = req.body
+            let heat
+            Heat.findOne({raw: true, where: {id}}).then(data => {
+                if (!bonus) {
+                    bonus = data.bonus || 0
+                    bonusDescription = data.bonusDescription
+                }
+                    heat=data
+            }).then(async () => {
             await HeatTrick.findAll({where: {heatId: id}}).then(async (heatTricks) => {
                 let pointsSum = 0
                 heatTricks.forEach(ht => pointsSum+=ht.total)
-                let total = pointsSum + bonus
+                let total = Number(pointsSum) + Number(bonus)
                 await Heat.update({pointsSum, bonus, bonusDescription, total}, {where: {id}})
             }).then( async () => {
+
                 await Heat.findAll({where: {competitionId: heat.competitionId, contestantId: heat.contestantId}}).then(async (heats) => {
                     let result = 0
                     heats.forEach(h => result += h.total)
@@ -252,6 +346,7 @@ class HeatController {
                 })
             })
 
+            })
 
             return res.json('Результат заезда обновлен')
         } catch (e) {
@@ -266,13 +361,15 @@ class HeatController {
             await Heat.findAll({where: {teamHeatId: id}}).then(async (heats) => {
                 let pointsSum = 0
                 heats.forEach(h => pointsSum+=h.total)
-                let total = pointsSum + bonus
-                const team = TeamHeat.findOne({where: {id}})
+                let total = pointsSum + (bonus || 0)
+                let team
+                await TeamHeat.findOne({where: {id}}).then((data) => team=data)
                 await TeamHeat.update({pointsSum, bonus, bonusDescription, total}, {where: {id}}).then(async ()=> {
                     let teamTotal = 0
-                    await TeamHeat.findAll({where: {teamId}}).then(async (data)=> {
-                        data.forEach(th => teamTotal+=th.total)
-                        await TeamResults.update({total: teamTotal}, {where: {teamId: team.teamId}})
+                    await TeamHeat.findAll({where: {teamId: id}}).then(async (data)=> {
+                        data.forEach(th => teamTotal= teamTotal+ Number(th.total))
+                        console.log(teamTotal)
+                        await TeamResults.update({total: teamTotal}, {where: {teamId: team.id}})
                     })
                 })
             })

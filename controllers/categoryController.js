@@ -1,4 +1,4 @@
-const {Category} = require("../models/models");
+const {Category, Trick} = require("../models/models");
 const ApiError = require("../error/ApiError");
 
 
@@ -8,7 +8,8 @@ class CategoryController {
         try {
             const {id} = req.params
             const category = await Category.findOne({where: {id}, include: [
-                    {model: Category, as: 'children'}
+                    {model: Category, as: 'children'},
+                    {model: Trick}
                 ]})
             return res.json(category)
         } catch (e) {

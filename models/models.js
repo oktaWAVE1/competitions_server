@@ -22,6 +22,7 @@ const Contestant = sequelize.define('contestant', {
     name: {type: DataTypes.STRING, allowNull: false},
     number: {type: DataTypes.INTEGER, allowNull: true},
     img: {type: DataTypes.STRING, allowNull: true},
+    teamOrder: {type: DataTypes.INTEGER, allowNull: true},
     status: {type: DataTypes.STRING, allowNull: true}
 })
 
@@ -49,7 +50,7 @@ const TeamResults = sequelize.define('team_results', {
 
 const Sport = sequelize.define('sport', {
     id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true},
-    name: {type: DataTypes.STRING, allowNull: false},
+    name: {type: DataTypes.STRING, allowNull: false, unique: true},
 }, {timestamps: false})
 
 const Category = sequelize.define('category', {
@@ -61,12 +62,14 @@ const Category = sequelize.define('category', {
 const Trick = sequelize.define('trick', {
     id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true},
     name: {type: DataTypes.STRING, allowNull: false},
+    defaultLevel: {type: DataTypes.INTEGER, defaultValue: 1},
     defaultPoints: {type: DataTypes.FLOAT, allowNull: true},
     description: {type: DataTypes.STRING, allowNull: true}
 }, {timestamps: false})
 
 const CompetitionTrick = sequelize.define('competition_trick', {
     id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true},
+    level: {type: DataTypes.INTEGER, allowNull: false},
     points: {type: DataTypes.FLOAT, allowNull: false}
 }, {timestamps: false})
 
@@ -74,7 +77,7 @@ const Competition = sequelize.define('competition', {
     id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true},
     name: {type: DataTypes.STRING, allowNull: false},
     description: {type: DataTypes.TEXT, allowNull: true},
-    type: {type: DataTypes.STRING, allowNull: false, defaultValue: "Командные"},
+    teamType: {type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false},
     adminId: {type: DataTypes.INTEGER, allowNull: false}
 })
 
@@ -90,7 +93,9 @@ const CompetitionModifier = sequelize.define('competition_modifier', {
     multiplier: {type: DataTypes.BOOLEAN, defaultValue: true, allowNull: false},
     min: {type: DataTypes.FLOAT, allowNull: false},
     max: {type: DataTypes.FLOAT, allowNull: false},
-    defaultValue: {type: DataTypes.FLOAT, allowNull: false}
+    step: {type: DataTypes.FLOAT, allowNull: false, defaultValue: 0.05},
+    defaultValue: {type: DataTypes.FLOAT, allowNull: false},
+    order: {type: DataTypes.INTEGER, allowNull:false}
 }, {timestamps: false})
 
 const TeamHeat = sequelize.define('team_heat', {
@@ -100,7 +105,7 @@ const TeamHeat = sequelize.define('team_heat', {
     pointsSum: {type: DataTypes.FLOAT, defaultValue: 0},
     bonus: {type: DataTypes.FLOAT, defaultValue: 0},
     bonusDescription: {type: DataTypes.STRING, defaultValue: ''},
-    total: {type: DataTypes.FLOAT, allowNull: true}
+    total: {type: DataTypes.FLOAT, allowNull: true, defaultValue: 0}
 }, {timestamps: false})
 
 const Heat = sequelize.define('heat', {
@@ -110,13 +115,14 @@ const Heat = sequelize.define('heat', {
     pointsSum: {type: DataTypes.FLOAT, defaultValue: 0},
     bonus: {type: DataTypes.FLOAT, defaultValue: 0},
     bonusDescription: {type: DataTypes.STRING, defaultValue: ''},
-    total: {type: DataTypes.FLOAT, allowNull: true}
+    total: {type: DataTypes.FLOAT, allowNull: true, defaultValue: 0}
 })
 
 const Group = sequelize.define('group', {
     id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true},
     description: {type: DataTypes.STRING, defaultValue: ''},
     status: {type: DataTypes.STRING, defaultValue: ''},
+    level: {type: DataTypes.INTEGER, defaultValue: 5},
     round: {type: DataTypes.INTEGER, defaultValue: 1}
 }, {timestamps: false})
 
@@ -135,8 +141,8 @@ const HeatTrick = sequelize.define('heat_trick', {
 const HeatTrickModifier = sequelize.define('heat_trick_modifier', {
     id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true},
     value: {type: DataTypes.FLOAT, allowNull: false},
-    type: {type: DataTypes.STRING, allowNull: false, defaultValue: "Коэффициент"},
-    multiplier: {type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true}
+    multiplier: {type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true},
+    order: {type: DataTypes.INTEGER, allowNull:false}
 }, {timestamps: false})
 
 Sport.hasMany(Category)
@@ -159,6 +165,9 @@ HeatTrick.belongsTo(CompetitionTrick)
 
 Competition.hasMany(Group)
 Group.belongsTo(Competition)
+
+Sport.hasMany(Trick)
+Trick.belongsTo(Sport)
 
 Group.hasMany(GroupMember)
 GroupMember.belongsTo(Group)
@@ -216,6 +225,12 @@ Heat.belongsTo(Competition)
 
 Group.hasMany(Heat)
 Heat.belongsTo(Group)
+
+Group.hasMany(TeamHeat)
+TeamHeat.belongsTo(Group)
+
+Sport.hasMany(Competition)
+Competition.belongsTo(Sport)
 
 Competition.hasMany(Referee)
 Referee.belongsTo(Competition)

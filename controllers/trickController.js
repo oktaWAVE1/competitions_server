@@ -16,9 +16,12 @@ class TrickController {
     }
     async get (req, res, next) {
         try {
-            const {categoryId} = req.params
-            const tricks = await Trick.findAll({where: {categoryId}, include: [
-                    {model: Category},
+            const {sportId} = req.params
+            const tricks = await Trick.findAll({where: {sportId}, order:[['categoryId', 'ASC']], include: [
+                    {model: Category,
+                        include: [
+                            {model: Category, as: 'parent'}
+                        ]},
                 ]})
             return res.json(tricks)
         } catch (e) {
@@ -28,9 +31,9 @@ class TrickController {
 
     async modify (req, res, next) {
         try {
-            const {name, description, defaultPoints, categoryId} = req.body
+            const {name, description, defaultPoints, defaultLevel, categoryId} = req.body
             let {id} = req.params
-            await Trick.update({name, description, defaultPoints, categoryId}, {where: {id}})
+            await Trick.update({name, description, defaultPoints, defaultLevel, categoryId}, {where: {id}})
             return res.json('Информация о трюке обновлена')
         } catch (e) {
             next(ApiError.badRequest(e.message))
@@ -39,8 +42,8 @@ class TrickController {
 
     async create (req, res, next) {
         try {
-            const {name, description, defaultPoints, categoryId} = req.body
-            await Trick.create({name, description, defaultPoints, categoryId})
+            const {name, description, defaultPoints, defaultLevel, categoryId, sportId} = req.body
+            await Trick.create({name, description, defaultPoints, defaultLevel, categoryId, sportId})
             return res.json('Трюк добавлен')
         } catch (e) {
             next(ApiError.badRequest(e.message))

@@ -1,4 +1,8 @@
-const {Competition, Category, CompetitionImages, CompetitionTrick, Trick, CompetitionModifier, Referee, TeamResults, Team, ContestantResults, Contestant} = require("../models/models");
+const {Competition, Category, CompetitionImages, CompetitionTrick, Trick, CompetitionModifier, Referee, TeamResults, Team, ContestantResults, Contestant,
+    Sport,
+    User,
+    Group
+} = require("../models/models");
 const ApiError = require("../error/ApiError");
 const imageService = require('../service/image-service')
 const path = require("path");
@@ -10,18 +14,32 @@ class CompetitionController {
     async getAll (req, res, next) {
         try {
             const competition = await Competition.findAll({include: [
-                    {model: CompetitionImages}
+                    {model: CompetitionImages},
+                    {model: Sport}
                 ]})
             return res.json(competition)
         } catch (e) {
             next(ApiError.badRequest(e.message))
         }
     }
-    async getCurrent (req, res, next) {
+
+    async getPublic(req, res, next) {
         try {
+
             const {id} = req.params
-            const competitions = await Competition.findAll({where: {id}, include: [
+            const competition = await Competition.findOne({where: {id}, include: [
                     {model: CompetitionImages},
+                    {model: CompetitionModifier},
+                    {model: Contestant},
+                    {model: Group},
+                    {model: Team, include: [
+                            {model: Contestant},
+                            {model: TeamResults}
+                        ]},
+                    {model: Sport},
+                    {model: Referee, include: [
+                            {model: User}
+                        ]},
                     {model: CompetitionTrick, include: [
                             {model: Trick, include: [
                                     {model: Category, include: [
@@ -29,13 +47,39 @@ class CompetitionController {
                                         ]}
                                 ]}
                         ]},
-                    {model: Team, include: [
-                        {model: TeamResults},
-                        {model: Contestant, include: [{model: ContestantResults}]}
-                        ]},
-                    {model: Contestant, include: [{model: ContestantResults}]},
                 ]})
-            return res.json(competitions)
+            return res.json(competition)
+        } catch (e) {
+            next(ApiError.badRequest(e.message))
+        }
+    }
+
+    async getCurrent (req, res, next) {
+        try {
+
+            const {id} = req.params
+            const competition = await Competition.findOne({where: {id}, include: [
+                    {model: CompetitionImages},
+                    {model: CompetitionModifier},
+                    {model: Contestant},
+                    {model: Group},
+                    {model: Team, include: [
+                            {model: Contestant},
+                            {model: TeamResults}
+                        ]},
+                    {model: Sport},
+                    {model: Referee, include: [
+                            {model: User}
+                        ]},
+                    {model: CompetitionTrick, include: [
+                            {model: Trick, include: [
+                                    {model: Category, include: [
+                                            {model: Category, as: "parent"}
+                                        ]}
+                                ]}
+                        ]},
+                ]})
+            return res.json(competition)
         } catch (e) {
             next(ApiError.badRequest(e.message))
         }
@@ -44,9 +88,9 @@ class CompetitionController {
 
     async modify (req, res, next) {
         try {
-            const {name, description, type, adminId} = req.body
+            const {name, description, teamType, adminId, sportId} = req.body
             let {id} = req.params
-            await Competition.update({name, description, type, adminId}, {where: {id}})
+            await Competition.update({name, description, teamType, adminId, sportId}, {where: {id}})
             return res.json('Информация о соревновании обновлена')
         } catch (e) {
             next(ApiError.badRequest(e.message))
@@ -61,8 +105,9 @@ class CompetitionController {
             } catch {
                 console.log("no imgs")
             }
-            const {name, description, type, adminId, copy, competitionId} = req.body
-            await Competition.create({name, description, type, adminId}).then(async (data) => {
+            const {name, description, teamType, adminId, copy, sportId, competitionId} = req.body
+
+            await Competition.create({name, description, teamType, adminId, sportId}).then(async (data) => {
                 if(file) {
                     if(Array.isArray(file)) {
                         file.forEach(async(img) => {
@@ -76,7 +121,7 @@ class CompetitionController {
                         })()
                     }
                 }
-                if (copy) {
+                if (copy && competitionId>0) {
                     const tricks = await CompetitionTrick.findAll({where: {competitionId}})
                     const modifiers = await CompetitionModifier.findAll({where: {competitionId}})
                     tricks.forEach(async (t) => {
@@ -98,6 +143,7 @@ class CompetitionController {
     async addImg (req, res, next) {
         const {competitionId} = req.body
         const file = req?.files?.file
+        console.log(file)
         try {
             if(Array.isArray(file)) {
                 file.forEach(async(img) => {
@@ -118,9 +164,9 @@ class CompetitionController {
         }
     }
 
-
     async delImg (req, res, next) {
-        const {id} = req.body
+        console.log(req.body)
+        const {id} = req.params
         const img = await CompetitionImages.findOne({where: {id}})
         try {
             await imageService.delImg(img?.dataValues?.img, directory)
@@ -148,12 +194,26 @@ class CompetitionController {
         }
     }
 
-
     async getTrick (req, res, next) {
         try {
-            console.log(req.body)
             const {id}  = req.params
             const competitionTricks = await CompetitionTrick.findOne({where:{id}, include: [
+                    {model: Trick, include: [
+                            {model: Category, include: [
+                                    {model: Category, as: "parent"}
+                                ]}
+                        ]}
+                ]})
+            return res.json(competitionTricks)
+        } catch (e) {
+            next(ApiError.badRequest(e.message))
+        }
+    }
+
+    async getAllTricks (req, res, next) {
+        try {
+            const {competitionId}  = req.params
+            const competitionTricks = await CompetitionTrick.findAll({where:{competitionId}, include: [
                     {model: Trick, include: [
                             {model: Category, include: [
                                     {model: Category, as: "parent"}
@@ -169,16 +229,24 @@ class CompetitionController {
     async addTrick (req, res, next) {
         try {
             const {competitionId, trickId}  = req.body
-            let {points} = req.body
-            if(!points){
-                await Trick.findOne({where: {id: trickId}}).then( async (data) => {
-                    await CompetitionTrick.create({competitionId, trickId, points: data.defaultPoints})
-                })
+            await Trick.findOne({where: {id: trickId}}).then( async (data) => {
+                await CompetitionTrick.create({competitionId, trickId, points: data.defaultPoints, level: data.defaultLevel})
+            })
 
-            } else {
-                await CompetitionTrick.create({competitionId, trickId, points})
-            }
             return res.json('Трюк добавлен')
+        } catch (e) {
+            next(ApiError.badRequest(e.message))
+        }
+    }
+
+    async addAllCompetitionTricks (req, res, next) {
+        try {
+            const {competitionId, sportId}  = req.body
+            const tricks = await Trick.findAll({where: {sportId}})
+            tricks.forEach(async t => {
+                await CompetitionTrick.create({competitionId, trickId: t.id, points: t.defaultPoints, level: t.defaultLevel})
+            })
+            return res.json('Трюки добавлены')
         } catch (e) {
             next(ApiError.badRequest(e.message))
         }
@@ -186,9 +254,9 @@ class CompetitionController {
 
     async modifyTrick (req, res, next) {
         try {
-            const {id, points}  = req.body
-
-            await CompetitionTrick.update({points}, {where: {id}})
+            const {id} = req.params
+            const {points, level}  = req.body
+            await CompetitionTrick.update({points, level}, {where: {id}})
             return res.json('Значение обновлено')
         } catch (e) {
             next(ApiError.badRequest(e.message))
@@ -197,7 +265,7 @@ class CompetitionController {
 
     async deleteTrick (req, res, next) {
         try {
-            const {id}  = req.body
+            const {id}  = req.params
             await CompetitionTrick.destroy({where: {id}})
             return res.json('Трюк удален')
         } catch (e) {
@@ -205,9 +273,19 @@ class CompetitionController {
         }
     }
 
+    async deleteAllCompetitionTricks (req, res, next) {
+        try {
+            const {competitionId}  = req.params
+            await CompetitionTrick.destroy({where: {competitionId}})
+            return res.json('Удалены все трюки из категории')
+        } catch (e) {
+            next(ApiError.badRequest(e.message))
+        }
+    }
+
     async getModifier (req, res, next) {
         try {
-            const {competitionId}  = req.body
+            const {competitionId}  = req.params
             const competitionModifiers = await CompetitionModifier.findAll({where:{competitionId}})
             return res.json(competitionModifiers)
         } catch (e) {
@@ -217,9 +295,9 @@ class CompetitionController {
 
     async addModifier (req, res, next) {
         try {
-            const {name, description, multiplier, min, max, defaultValue, competitionId}  = req.body
+            const {name, description, multiplier, min, max, defaultValue, competitionId, order}  = req.body
 
-            await CompetitionModifier.create({name, description, multiplier, min, max, defaultValue, competitionId})
+            await CompetitionModifier.create({name, description, multiplier, min, max, defaultValue, order, competitionId})
             return res.json('Модификатор добавлен')
         } catch (e) {
             next(ApiError.badRequest(e.message))
@@ -228,9 +306,9 @@ class CompetitionController {
 
     async modifyModifier (req, res, next) {
         try {
-            const {name, description, multiplier, min, max, defaultValue, id}  = req.body
-
-            await CompetitionModifier.update({name, description, multiplier, min, max, defaultValue}, {where: {id}})
+            const {name, description, multiplier, min, max, defaultValue, order}  = req.body
+            const {id} = req.params
+            await CompetitionModifier.update({name, description, multiplier, min, max, order, defaultValue}, {where: {id}})
             return res.json('Модификатор обновлен')
         } catch (e) {
             next(ApiError.badRequest(e.message))
@@ -239,7 +317,7 @@ class CompetitionController {
 
     async deleteModifier(req, res, next) {
         try {
-            const {id}  = req.body
+            const {id}  = req.params
             await CompetitionModifier.destroy({where: {id}})
             return res.json('Модификатор удален')
         } catch (e) {
@@ -270,7 +348,7 @@ class CompetitionController {
 
     async deleteReferee(req, res, next) {
         try {
-            const {id}  = req.body
+            const {id}  = req.params
             await Referee.destroy({where: {id}})
             return res.json('Судья удален')
         } catch (e) {

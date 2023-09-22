@@ -81,7 +81,7 @@ class UserController {
         try {
             const {refreshToken} = req.cookies;
             if (!refreshToken) {
-                return
+                return res.json('Не авторизован')
             }
 
             const user = await tokenService.refresh(refreshToken, next)
@@ -106,9 +106,8 @@ class UserController {
         try {
             const {id} = req.body
             const user = await User.findOne({
-                where: {id}, attributes: ['name', 'email', 'telephone', 'id', 'address'],
+                where: {id}, attributes: ['name', 'email', 'telephone', 'id'],
             })
-            console.log(user)
             return res.json(user)
         } catch (e) {
             next(ApiError.badRequest(e.message))
@@ -149,7 +148,16 @@ class UserController {
         }
     }
 
+    async modifyRole (req, res, next) {
+        try {
+            const {id, role} = req.body
+            await User.update({role}, {where: {id}})
 
+            return res.json("Роль пользователя изменена.")
+        } catch (e) {
+            next(ApiError.badRequest(e.message))
+        }
+    }
 
 
     async activate (req, res, next) {
@@ -205,9 +213,9 @@ class UserController {
     async logout (req, res, next) {
         try {
             const {refreshToken} = req.cookies;
-            const token = await tokenService.removeToken({refreshToken})
+            await tokenService.removeToken({refreshToken})
             res.clearCookie('refreshToken')
-            return res.json(token)
+            return res.json('Logout')
         } catch (e) {
             next(ApiError.badRequest(e.message))
         }

@@ -6,9 +6,9 @@ const checkRole = require('../middleware/CheckRoleMiddleware')
 
 router.get('/', sportController.get)
 router.get('/current/:id', sportController.getOne)
-router.patch('/:id', checkRole('ADMIN'), sportController.modify)
+router.patch('/current/:id', checkRole('ADMIN'), sportController.modify)
 router.post('/', checkRole('ADMIN'), sportController.create)
-router.delete('/:id', checkRole('ADMIN'), sportController.delete)
+router.delete('/current/:id', checkRole('ADMIN'), sportController.delete)
 
 
 module.exports = router

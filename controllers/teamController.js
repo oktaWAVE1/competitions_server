@@ -1,4 +1,4 @@
-const {Team, Contestant, TeamResults, CompetitionImages, Competition} = require('../models/models')
+const {Team, Contestant, TeamResults, ContestantResults, TeamHeat} = require('../models/models')
 const ApiError = require("../error/ApiError");
 const imageService = require('../service/image-service')
 const path = require("path");
@@ -9,11 +9,28 @@ const resizeWidth = parseInt(process.env.RESIZE_WIDTH)
 class TeamController {
     async getOne (req, res, next) {
         try {
+            console.log(req.params)
             const {id} = req.params
-            console.log(id)
             const team = await Team.findOne({where: {id}, include: [
                     {model: TeamResults},
+                    {model: TeamHeat},
                     {model: Contestant},
+                ]})
+            return res.json(team)
+        } catch (e) {
+            next(ApiError.badRequest(e.message))
+        }
+    }
+
+    async getAll (req, res, next) {
+        try {
+            const {competitionId} = req.params
+            console.log(competitionId)
+            const team = await Team.findAll({where: {competitionId}, include: [
+                    {model: TeamResults},
+                    {model: Contestant, include: [
+                        {model: ContestantResults}
+                        ]},
                 ]})
             return res.json(team)
         } catch (e) {
@@ -74,10 +91,10 @@ class TeamController {
     async deleteImg (req, res, next) {
         try {
             const {id} = req.params
-            const team = await Team.findByPk(id)
+            const team = await Team.findOne({where: {id}})
             if (team?.img){
                 await imageService.delImg(team?.img, directory)
-                await Team.update({img: null},{where: {id: team.id}})
+                await Team.update({img: null},{where: {id}})
             }
             return res.json('Изображение команды удалено')
         } catch (e) {
@@ -87,11 +104,14 @@ class TeamController {
 
     async changeImg (req, res, next){
         try {
-            const {id} = req.params
-            const team = await Team.findByPk(id)
+            console.log(req.body)
+            const {id} = req.body
+            console.log(id)
+            const team = await Team.findOne({where: {id}})
             if (team?.img){
                 await imageService.delImg(team?.img, directory)
             }
+            console.log(req.files)
             let file
             try {
                 file = req.files.file
@@ -102,7 +122,7 @@ class TeamController {
             if (file){
                 img = await imageService.saveImg(file, directory, resizeWidth)
             }
-            await Team.update({img},{where: {id: team.id}})
+            await Team.update({img},{where: {id}})
             return res.json('Изображение команды изменено')
         } catch (e) {
             next(ApiError.badRequest(e.message))

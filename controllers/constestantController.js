@@ -1,4 +1,5 @@
-const {Team, Contestant, ContestantResults} = require('../models/models')
+const {Team, Contestant, ContestantResults, Heat, HeatTrick, CompetitionTrick, Trick, Category, Group,
+    HeatTrickModifier, CompetitionModifier,} = require('../models/models')
 const ApiError = require("../error/ApiError");
 const imageService = require('../service/image-service')
 const path = require("path");
@@ -13,6 +14,21 @@ class ContestantController {
             const contestant = await Contestant.findOne({where: {id}, include: [
                     {model: ContestantResults},
                     {model: Team},
+                    {model: Heat, include: [
+                            {model: Group},
+                            {model: HeatTrick, include: [
+                                    {model: HeatTrickModifier, include: [
+                                            {model: CompetitionModifier}
+                                        ]},
+                                    {model: CompetitionTrick, include: [
+                                        {model: Trick, include: [
+                                                {model: Category, include: [
+                                                        {model: Category, as: 'parent'}
+                                                    ]}
+                                            ]}
+                                        ]}
+                                ]}
+                        ]}
                 ]})
             return res.json(contestant)
         } catch (e) {
@@ -33,9 +49,9 @@ class ContestantController {
 
     async modify (req, res, next) {
         try {
-            const {name, number, group, status, competitionId, teamId} = req.body
+            const {name, number, group, status, teamId, teamOrder} = req.body
             let {id} = req.params
-            await Contestant.update({name, number, group, status, competitionId, teamId}, {where: {id}})
+            await Contestant.update({name, number, group, status, teamId, teamOrder}, {where: {id}})
             return res.json('Информация обновлена')
         } catch (e) {
             next(ApiError.badRequest(e.message))
@@ -45,10 +61,15 @@ class ContestantController {
     async create (req, res, next) {
         try {
             const {name, number, group, status, competitionId, teamId} = req.body
+            let contestantNumber = number?.length>0 ? number : 0
+            let {teamOrder} = req.body
+            if (!teamOrder && teamId) {
+                const teamContestant = await Contestant.findAll({where: {teamId}, order: [['teamOrder', 'DESC']]})
+                teamOrder = parseInt(teamContestant[0]['teamOrder'])+1
+            }
             let file
             try {
                 file = req.files.file
-                console.log(file.length)
             } catch {
                 console.log("no imgs")
             }
@@ -56,7 +77,7 @@ class ContestantController {
             if (file){
                 img = await imageService.saveImg(file, directory, resizeWidth)
             }
-            await Contestant.create({name, number, group, status, img, competitionId, teamId}).then(
+            await Contestant.create({name, number: contestantNumber, group, status, img, competitionId, teamId, teamOrder}).then(
                 async (data) => {
                     await ContestantResults.create({contestantId: data.id, competitionId})
                 }
@@ -82,10 +103,10 @@ class ContestantController {
     async deleteImg (req, res, next) {
         try {
             const {id} = req.params
-            const contestant = await Team.findByPk(id)
+            const contestant = await Contestant.findOne({where: {id}})
             if (contestant?.img){
                 await imageService.delImg(contestant?.img, directory)
-                await Contestant.update({img: null},{where: {id: team.id}})
+                await Contestant.update({img: null},{where: {id: contestant.id}})
             }
             return res.json('Изображение участника удалено')
         } catch (e) {
@@ -95,8 +116,8 @@ class ContestantController {
 
     async changeImg (req, res, next){
         try {
-            const {id} = req.params
-            const contestant = await Contestant.findByPk(id)
+            const {id} = req.body
+            const contestant = await Contestant.findOne({where: {id}})
             if (contestant?.img){
                 await imageService.delImg(contestant?.img, directory)
             }

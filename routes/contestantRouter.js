@@ -11,7 +11,7 @@ router.get('/person/:id', contestantController.getOne)
 router.patch('/person/:id', checkRole('ADMIN'), contestantController.modify)
 router.post('/', checkRole('ADMIN'), contestantController.create)
 router.delete('/person/:id', checkRole('ADMIN'), contestantController.delete)
-router.patch('/img/:id', checkRole('ADMIN'), contestantController.changeImg)
+router.patch('/img', checkRole('ADMIN'), contestantController.changeImg)
 router.delete('/img/:id', checkRole('ADMIN'), contestantController.deleteImg)
 
 

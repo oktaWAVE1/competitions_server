@@ -4,7 +4,7 @@ const trickController = require('../controllers/trickController')
 const checkRole = require('../middleware/CheckRoleMiddleware')
 
 
-router.get('/:categoryId', trickController.get)
+router.get('/:sportId', trickController.get)
 router.get('/current/:id', trickController.getOne)
 router.patch('/current/:id', checkRole('ADMIN'), trickController.modify)
 router.post('/', checkRole('ADMIN'), trickController.create)
