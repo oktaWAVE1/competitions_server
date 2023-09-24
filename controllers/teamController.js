@@ -80,6 +80,7 @@ class TeamController {
             await imageService.delImg(team?.img, directory)
             }
             await Team.destroy({where: {id}})
+            await Contestant.destroy({where: {teamId: id}})
             await TeamResults.destroy({where: {teamId: id}})
             return res.json('Команда удалена')
         } catch (e) {
