@@ -10,6 +10,7 @@ router.patch('/current/:id', checkRole('ADMIN'), competitionController.modify)
 router.post('/', competitionController.create)
 router.delete('/current/:id', checkRole('ADMIN'), competitionController.delete)
 router.post('/img/', checkRole("ADMIN"), competitionController.addImg)
+router.get('/img/:competitionId', competitionController.getCompetitionImages)
 router.delete('/img/:id', checkRole("ADMIN"), competitionController.delImg)
 router.post('/trick/', checkRole("ADMIN"), competitionController.addTrick)
 router.get('/trick/:id', competitionController.getTrick)
@@ -23,7 +24,7 @@ router.get('/modifier/current/:competitionId', competitionController.getModifier
 router.delete('/modifier/current/:id', checkRole("ADMIN"), competitionController.deleteModifier)
 router.patch('/modifier/current/:id', checkRole("ADMIN"), competitionController.modifyModifier)
 router.post('/referee/', checkRole("ADMIN"), competitionController.addReferee)
-router.get('/referee/', competitionController.getReferee)
+router.get('/referee/:competitionId', competitionController.getReferee)
 router.delete('/referee/:id', checkRole("ADMIN"), competitionController.deleteReferee)
 
 

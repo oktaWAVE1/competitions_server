@@ -23,61 +23,28 @@ class CompetitionController {
         }
     }
 
-    async getPublic(req, res, next) {
+    async getCompetitionImages(req, res, next) {
         try {
+            const {competitionId} = req.params
+            const images = await CompetitionImages.findAll({where: {competitionId}})
+            return res.json(images)
 
-            const {id} = req.params
-            const competition = await Competition.findOne({where: {id}, include: [
-                    {model: CompetitionImages},
-                    {model: CompetitionModifier},
-                    {model: Contestant},
-                    {model: Group},
-                    {model: Team, include: [
-                            {model: Contestant},
-                            {model: TeamResults}
-                        ]},
-                    {model: Sport},
-                    {model: Referee, include: [
-                            {model: User}
-                        ]},
-                    {model: CompetitionTrick, include: [
-                            {model: Trick, include: [
-                                    {model: Category, include: [
-                                            {model: Category, as: "parent"}
-                                        ]}
-                                ]}
-                        ]},
-                ]})
-            return res.json(competition)
         } catch (e) {
             next(ApiError.badRequest(e.message))
         }
     }
+
+
 
     async getCurrent (req, res, next) {
         try {
 
             const {id} = req.params
             const competition = await Competition.findOne({where: {id}, include: [
-                    {model: CompetitionImages},
                     {model: CompetitionModifier},
-                    {model: Contestant},
                     {model: Group},
-                    {model: Team, include: [
-                            {model: Contestant},
-                            {model: TeamResults}
-                        ]},
                     {model: Sport},
-                    {model: Referee, include: [
-                            {model: User}
-                        ]},
-                    {model: CompetitionTrick, include: [
-                            {model: Trick, include: [
-                                    {model: Category, include: [
-                                            {model: Category, as: "parent"}
-                                        ]}
-                                ]}
-                        ]},
+
                 ]})
             return res.json(competition)
         } catch (e) {
@@ -338,8 +305,10 @@ class CompetitionController {
 
     async getReferee (req, res, next) {
         try {
-            const {competitionId}  = req.body
-            const referees = await Referee.findAll({where:{competitionId}})
+            const {competitionId}  = req.params
+            const referees = await Referee.findAll({where:{competitionId}, include: [
+                    {model: User}
+                ]})
             return res.json(referees)
         } catch (e) {
             next(ApiError.badRequest(e.message))

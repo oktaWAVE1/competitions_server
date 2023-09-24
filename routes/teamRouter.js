@@ -13,6 +13,4 @@ router.delete('/current/:id', checkRole('ADMIN'), teamController.delete)
 router.patch('/img', checkRole('ADMIN'), teamController.changeImg)
 router.delete('/img/:id', checkRole('ADMIN'), teamController.deleteImg)
 
-
-
 module.exports = router
