@@ -95,8 +95,10 @@ class HeatController {
             await TeamHeat.create({teamId, order, round, groupId}).then(async (th) => {
 
                 await Contestant.findAll({where: {teamId}, order:[['teamOrder', 'ASC']]}).then(async (data) => {
+                    let heatOrder = 0
                     data.forEach(async (d) => {
-                        Heat.create({order, round, teamHeatId: th.id, contestantId: d.id, competitionId: d.competitionId, groupId})
+                        heatOrder = heatOrder +1
+                        Heat.create({order: heatOrder, round, teamHeatId: th.id, contestantId: d.id, competitionId: d.competitionId, groupId, teamId})
                     })
                 })
             })
@@ -136,10 +138,7 @@ class HeatController {
                 await TeamHeat.create({order: order, teamId: teamHeats[i]['teamId'], round: (Number(round)+1), groupId}).then(async(data)=> {
                 const contestantHeats = await Heat.findAll({where: {groupId, teamHeatId: teamHeats[i]['id'], round}, order:[['order', 'ASC']]})
                 let heatOrder = 0
-                        console.log(contestantHeats.length)
                 for (let j=0; j<contestantHeats.length; j++) {
-                    console.log('******************')
-                    console.log(j)
                     heatOrder = heatOrder +1
                     await Heat.create({order: heatOrder, teamHeatId: data.dataValues.id, contestantId: contestantHeats[j]['contestantId'], competitionId: contestantHeats[j]['competitionId'], round: (Number(round)+1), groupId})
                 }
@@ -234,8 +233,8 @@ class HeatController {
     async deleteTeamHeat(req, res, next) {
         try {
             const {id} = req.params
-            await TeamHeat.destroy({where: {id}})
             await Heat.destroy({where: {teamHeatId: id}})
+            await TeamHeat.destroy({where: {id}})
             return res.json('Командный заезд удален')
         } catch (e) {
             next(ApiError.badRequest(e.message))
@@ -357,7 +356,7 @@ class HeatController {
     async teamHeatCalculate (req, res, next) {
         try {
             const {id} = req.params
-            const {bonus, bonusDescription} = req.body
+            const {bonus, bonusDescription, teamId} = req.body
             await Heat.findAll({where: {teamHeatId: id}}).then(async (heats) => {
                 let pointsSum = 0
                 heats.forEach(h => pointsSum+=h.total)
@@ -366,10 +365,12 @@ class HeatController {
                 await TeamHeat.findOne({where: {id}}).then((data) => team=data)
                 await TeamHeat.update({pointsSum, bonus, bonusDescription, total}, {where: {id}}).then(async ()=> {
                     let teamTotal = 0
-                    await TeamHeat.findAll({where: {teamId: id}}).then(async (data)=> {
-                        data.forEach(th => teamTotal= teamTotal+ Number(th.total))
-                        console.log(teamTotal)
-                        await TeamResults.update({total: teamTotal}, {where: {teamId: team.id}})
+                    await TeamHeat.findAll({where: {teamId}}).then(async (data)=> {
+                        data.forEach(th => {
+                            teamTotal= teamTotal+ Number(th.total)
+                        }
+                        )
+                        await TeamResults.update({total: teamTotal}, {where: {teamId}})
                     })
                 })
             })

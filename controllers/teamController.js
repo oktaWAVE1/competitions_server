@@ -105,14 +105,11 @@ class TeamController {
 
     async changeImg (req, res, next){
         try {
-            console.log(req.body)
             const {id} = req.body
-            console.log(id)
             const team = await Team.findOne({where: {id}})
             if (team?.img){
                 await imageService.delImg(team?.img, directory)
             }
-            console.log(req.files)
             let file
             try {
                 file = req.files.file
