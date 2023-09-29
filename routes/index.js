@@ -9,6 +9,7 @@ const trickRouter = require('./trickRouter')
 const groupRouter = require('./groupRouter')
 const competitionRouter = require('./competitionRouter')
 const heatRouter = require('./heatRouter')
+const notificationRouter = require('./notificationRouter')
 
 router.use('/user', userRouter)
 router.use('/contestant', contestantRouter)
@@ -19,5 +20,6 @@ router.use('/trick', trickRouter)
 router.use('/group', groupRouter)
 router.use('/competition', competitionRouter)
 router.use('/heat', heatRouter)
+router.use('/notification', heatRouter)
 
 module.exports = router

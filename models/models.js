@@ -9,6 +9,7 @@ const User = sequelize.define('user', {
     name: {type: DataTypes.STRING, allowNull: false},
     isActivated: {type: DataTypes.BOOLEAN, defaultValue: false},
     activationLink: {type: DataTypes.STRING},
+    subscription: {type: DataTypes.STRING, allowNull: true},
     telephone: {type: DataTypes.STRING, unique: true}
 })
 
