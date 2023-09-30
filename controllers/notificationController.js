@@ -19,14 +19,16 @@ class NotificationController {
                     }
                 }
             })
-            users.forEach(async (u) => {
-                webPush.setVapidDetails(
-                    `mailto:${user?.email}`,
-                    vapidKeys.publicKey,
-                    vapidKeys.privateKey
-                )
-                webPush.sendNotification(user.subscription, message)
-            })
+            if (users) {
+                users.forEach(async (u) => {
+                    webPush.setVapidDetails(
+                        `mailto:${user?.email}`,
+                        vapidKeys.publicKey,
+                        vapidKeys.privateKey
+                    )
+                    webPush.sendNotification(user.subscription, message)
+                })
+            }
             return res.json('success')
         } catch (e) {
             next(ApiError.badRequest(e.message))

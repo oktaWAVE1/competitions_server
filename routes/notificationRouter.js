@@ -5,6 +5,7 @@ const authMiddleware = require('../middleware/AuthMiddleware')
 const checkRole = require('../middleware/CheckRoleMiddleware')
 
 router.post('/', notificationController.subscribe)
+router.post('/send', notificationController.sendNotification)
 
 
 module.exports = router

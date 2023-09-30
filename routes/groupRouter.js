@@ -6,13 +6,13 @@ const checkRole = require('../middleware/CheckRoleMiddleware')
 
 router.get('/:competitionId', groupController.get)
 router.get('/current/:id', groupController.getOne)
-router.patch('/current/:id', checkRole('ADMIN'), groupController.modify)
-router.delete('/current/:id', checkRole('ADMIN'), groupController.delete)
-router.post('/', checkRole('ADMIN'), groupController.create)
-router.post('/group/:groupId', checkRole('ADMIN'), groupController.addAllContestants)
-router.post('/member/:groupId', checkRole('ADMIN'), groupController.addMember)
-router.delete('/member/:id', checkRole('ADMIN'), groupController.deleteMember)
-router.patch('/member/:id', checkRole('ADMIN'), groupController.editMember)
+router.patch('/current/:id', checkRole('ADMIN,MODERATOR'), groupController.modify)
+router.delete('/current/:id', checkRole('ADMIN,MODERATOR'), groupController.delete)
+router.post('/', checkRole('ADMIN,MODERATOR'), groupController.create)
+router.post('/group/:groupId', checkRole('ADMIN,MODERATOR'), groupController.addAllContestants)
+router.post('/member/:groupId', checkRole('ADMIN,MODERATOR'), groupController.addMember)
+router.delete('/member/:id', checkRole('ADMIN,MODERATOR'), groupController.deleteMember)
+router.patch('/member/:id', checkRole('ADMIN,MODERATOR'), groupController.editMember)
 
 
 
