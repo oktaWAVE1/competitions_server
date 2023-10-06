@@ -4,15 +4,21 @@ const fs = require("fs");
 
 
 class ImageService {
-    async saveImg(file, directory, width=200) {
+    async saveImg(file, directory, width=200, maxWidth=1500) {
         let fileName = uuid.v4() + ".webp"
-        await file.mv(directory+'/'+fileName).then(async () => {
-            await sharp(directory+'/'+fileName)
-                .resize({
-                    width: width,
-                })
-                .toFile(directory+'/mini/'+fileName);
-        })
+
+        await sharp(file)
+            .resize({
+
+                width: width,
+            }).toFormat('webp')
+            .toFile(directory+'/mini/'+fileName);
+        await sharp(directory+'/'+fileName)
+            .resize({
+                width: maxWidth,
+            }).toFormat('webp')
+            .toFile(directory+'/'+fileName);
+
         return fileName
     }
 
